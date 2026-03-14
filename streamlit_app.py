@@ -1,6 +1,7 @@
 """
 FinSight AI - Streamlit Dashboard
 Modern and clean expense tracking dashboard with AI-powered insights
+Multi-user support with Supabase authentication
 """
 
 import streamlit as st
@@ -10,9 +11,16 @@ import plotly.express as px
 from datetime import datetime, timedelta
 import json
 import requests
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 import io
 from PIL import Image
+
+# Supabase integration
+try:
+    from supabase import create_client, Client
+    SUPABASE_AVAILABLE = True
+except ImportError:
+    SUPABASE_AVAILABLE = False
 
 # Page configuration
 st.set_page_config(
@@ -21,6 +29,150 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# ============================================================================
+# SUPABASE AUTHENTICATION
+# ============================================================================
+
+def init_supabase() -> Optional[Client]:
+    """Initialize Supabase client"""
+    if not SUPABASE_AVAILABLE:
+        return None
+    try:
+        url = st.secrets.get("supabase", {}).get("url", "")
+        key = st.secrets.get("supabase", {}).get("key", "")
+        if url and key:
+            return create_client(url, key)
+    except Exception as e:
+        st.warning(f"Supabase not configured: {e}")
+    return None
+
+def get_supabase_client() -> Optional[Client]:
+    """Get or create Supabase client"""
+    if 'supabase_client' not in st.session_state:
+        st.session_state.supabase_client = init_supabase()
+    return st.session_state.supabase_client
+
+def sign_up(email: str, password: str) -> dict:
+    """Sign up a new user"""
+    client = get_supabase_client()
+    if not client:
+        return {"success": False, "error": "Supabase not available"}
+    try:
+        response = client.auth.sign_up({"email": email, "password": password})
+        if response.user:
+            return {"success": True, "user": response.user, "message": "Check your email to confirm your account!"}
+        return {"success": False, "error": "Sign up failed"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def sign_in(email: str, password: str) -> dict:
+    """Sign in an existing user"""
+    client = get_supabase_client()
+    if not client:
+        return {"success": False, "error": "Supabase not available"}
+    try:
+        response = client.auth.sign_in_with_password({"email": email, "password": password})
+        if response.user:
+            st.session_state.user = response.user
+            st.session_state.session = response.session
+            return {"success": True, "user": response.user}
+        return {"success": False, "error": "Invalid credentials"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def sign_out():
+    """Sign out the current user"""
+    client = get_supabase_client()
+    if client:
+        try:
+            client.auth.sign_out()
+        except:
+            pass
+    st.session_state.user = None
+    st.session_state.session = None
+    st.session_state.local_expenses = []
+
+def get_current_user():
+    """Get the current logged-in user"""
+    return st.session_state.get('user', None)
+
+def is_authenticated() -> bool:
+    """Check if user is authenticated"""
+    return get_current_user() is not None
+
+# ============================================================================
+# DATABASE OPERATIONS (Supabase)
+# ============================================================================
+
+def fetch_user_expenses() -> List[dict]:
+    """Fetch expenses for the current user from Supabase"""
+    client = get_supabase_client()
+    user = get_current_user()
+    
+    if not client or not user:
+        return st.session_state.get('local_expenses', [])
+    
+    try:
+        response = client.table('expenses').select('*').eq('user_id', user.id).order('date', desc=True).execute()
+        return response.data if response.data else []
+    except Exception as e:
+        st.error(f"Failed to fetch expenses: {e}")
+        return []
+
+def add_expense_to_db(date: str, merchant: str, category: str, amount: float, description: str = "") -> dict:
+    """Add an expense to the database"""
+    client = get_supabase_client()
+    user = get_current_user()
+    
+    if not client or not user:
+        # Fallback to local storage
+        expense = {
+            "id": len(st.session_state.get('local_expenses', [])) + 1,
+            "date": date,
+            "merchant": merchant,
+            "category": category,
+            "amount": amount,
+            "description": description
+        }
+        if 'local_expenses' not in st.session_state:
+            st.session_state.local_expenses = []
+        st.session_state.local_expenses.append(expense)
+        return {"success": True, "expense": expense, "local": True}
+    
+    try:
+        expense_data = {
+            "user_id": user.id,
+            "date": date,
+            "merchant": merchant,
+            "category": category,
+            "amount": amount,
+            "description": description
+        }
+        response = client.table('expenses').insert(expense_data).execute()
+        if response.data:
+            return {"success": True, "expense": response.data[0]}
+        return {"success": False, "error": "Failed to add expense"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def delete_expense_from_db(expense_id: str) -> dict:
+    """Delete an expense from the database"""
+    client = get_supabase_client()
+    user = get_current_user()
+    
+    if not client or not user:
+        return {"success": False, "error": "Not authenticated"}
+    
+    try:
+        response = client.table('expenses').delete().eq('id', expense_id).eq('user_id', user.id).execute()
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+# ============================================================================
+# CUSTOM CSS
+# ============================================================================
 
 # Custom CSS for modern design
 st.markdown("""
@@ -185,6 +337,24 @@ st.markdown("""
         border-radius: 5px;
         margin-bottom: 15px;
     }
+    
+    /* Auth form styling */
+    .auth-container {
+        max-width: 400px;
+        margin: 50px auto;
+        padding: 30px;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .user-badge {
+        background: linear-gradient(135deg, #1f77b4 0%, #2ca02c 100%);
+        color: white;
+        padding: 8px 15px;
+        border-radius: 20px;
+        font-size: 0.9em;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -196,8 +366,82 @@ if 'api_url' not in st.session_state:
 if 'api_available' not in st.session_state:
     st.session_state.api_available = None
 if 'local_expenses' not in st.session_state:
-    # Start with empty data - users can add their own
     st.session_state.local_expenses = []
+if 'user' not in st.session_state:
+    st.session_state.user = None
+if 'session' not in st.session_state:
+    st.session_state.session = None
+if 'auth_mode' not in st.session_state:
+    st.session_state.auth_mode = 'login'
+
+# ============================================================================
+# AUTHENTICATION UI
+# ============================================================================
+
+def show_auth_page():
+    """Display login/signup page"""
+    st.markdown("""
+    <div class="main-header">
+        <h1>💰 FinSight AI</h1>
+        <p>Smart Expense Tracking & AI-Powered Financial Insights</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        st.markdown("### 🔐 Welcome! Please sign in to continue")
+        
+        # Toggle between login and signup
+        tab1, tab2 = st.tabs(["🔑 Login", "📝 Sign Up"])
+        
+        with tab1:
+            with st.form("login_form"):
+                email = st.text_input("Email", placeholder="your@email.com")
+                password = st.text_input("Password", type="password", placeholder="Your password")
+                submit = st.form_submit_button("Login", use_container_width=True)
+                
+                if submit:
+                    if email and password:
+                        result = sign_in(email, password)
+                        if result["success"]:
+                            st.success("✅ Logged in successfully!")
+                            st.rerun()
+                        else:
+                            st.error(f"❌ {result.get('error', 'Login failed')}")
+                    else:
+                        st.warning("Please enter email and password")
+        
+        with tab2:
+            with st.form("signup_form"):
+                new_email = st.text_input("Email", placeholder="your@email.com", key="signup_email")
+                new_password = st.text_input("Password", type="password", placeholder="Min 6 characters", key="signup_pass")
+                confirm_password = st.text_input("Confirm Password", type="password", placeholder="Confirm password", key="confirm_pass")
+                signup_submit = st.form_submit_button("Create Account", use_container_width=True)
+                
+                if signup_submit:
+                    if new_email and new_password:
+                        if new_password != confirm_password:
+                            st.error("Passwords don't match!")
+                        elif len(new_password) < 6:
+                            st.error("Password must be at least 6 characters")
+                        else:
+                            result = sign_up(new_email, new_password)
+                            if result["success"]:
+                                st.success(f"✅ {result.get('message', 'Account created!')}")
+                                st.info("You can now login with your credentials.")
+                            else:
+                                st.error(f"❌ {result.get('error', 'Sign up failed')}")
+                    else:
+                        st.warning("Please fill in all fields")
+        
+        st.markdown("---")
+        st.markdown("##### 💡 Demo Mode")
+        if st.button("Continue without account (Demo)", use_container_width=True):
+            # Set a demo user flag
+            st.session_state.user = type('DemoUser', (), {'id': 'demo', 'email': 'demo@finsight.ai'})()
+            st.session_state.demo_mode = True
+            st.rerun()
 
 def check_api_availability():
     """Check if the backend API is available"""
@@ -211,18 +455,23 @@ def check_api_availability():
     return st.session_state.api_available
 
 def get_local_spending_summary(days: int = 30) -> Dict:
-    """Get spending summary from local data (for demo/cloud mode)"""
-    expenses = st.session_state.local_expenses
-    total = sum(e['amount'] for e in expenses)
+    """Get spending summary from local/Supabase data"""
+    # Fetch expenses from Supabase if authenticated
+    if is_authenticated() and not st.session_state.get('demo_mode', False):
+        expenses = fetch_user_expenses()
+    else:
+        expenses = st.session_state.local_expenses
+    
+    total = sum(float(e.get('amount', 0)) for e in expenses)
     count = len(expenses)
     
     # Group by category
     by_category = {}
     for e in expenses:
-        cat = e['category']
+        cat = e.get('category', 'Other')
         if cat not in by_category:
             by_category[cat] = {'total': 0, 'count': 0}
-        by_category[cat]['total'] += e['amount']
+        by_category[cat]['total'] += float(e.get('amount', 0))
         by_category[cat]['count'] += 1
     
     categories = [
@@ -408,15 +657,44 @@ def get_monthly_insights(months: int = 3) -> Dict:
         return get_local_monthly_insights(months)
 
 # ============================================================================
-# HEADER SECTION
+# MAIN APP - AUTHENTICATION CHECK
 # ============================================================================
 
-st.markdown("""
-<div class="main-header">
-    <h1>💰 FinSight AI</h1>
-    <p>Smart Expense Tracking & AI-Powered Financial Insights</p>
-</div>
-""", unsafe_allow_html=True)
+# Check if user is authenticated
+if not is_authenticated():
+    show_auth_page()
+    st.stop()
+
+# ============================================================================
+# HEADER SECTION (Authenticated users only)
+# ============================================================================
+
+# Show user info in header
+user = get_current_user()
+user_email = getattr(user, 'email', 'Demo User')
+demo_mode = st.session_state.get('demo_mode', False)
+
+col_header1, col_header2 = st.columns([3, 1])
+with col_header1:
+    st.markdown("""
+    <div class="main-header">
+        <h1>💰 FinSight AI</h1>
+        <p>Smart Expense Tracking & AI-Powered Financial Insights</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_header2:
+    st.markdown(f"""
+    <div style="text-align: right; padding-top: 20px;">
+        <span class="user-badge">👤 {user_email}</span>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("🚪 Logout", key="logout_btn"):
+        sign_out()
+        st.rerun()
+
+if demo_mode:
+    st.info("🎮 **Demo Mode** - Your data is stored locally and will be lost when you close the browser. Sign up for a free account to save your data!")
 
 # ============================================================================
 # SIDEBAR - NAVIGATION & SETTINGS
@@ -753,7 +1031,8 @@ elif page == "➕ Add Expense":
                 st.error("❌ Amount must be greater than 0")
             else:
                 with st.spinner("Adding expense..."):
-                    result = add_expense(
+                    # Use Supabase for authenticated users, local for demo
+                    result = add_expense_to_db(
                         date=expense_date.strftime("%Y-%m-%d"),
                         merchant=merchant,
                         category=category,
@@ -762,9 +1041,10 @@ elif page == "➕ Add Expense":
                     )
                 
                 if result['success']:
-                    expense = result['data'].get('expense', {})
                     st.markdown('<div class="success-message">', unsafe_allow_html=True)
                     st.success("✅ Expense added successfully!")
+                    if result.get('local'):
+                        st.info("💡 This expense is stored locally. Sign up for an account to save permanently!")
                     st.markdown('</div>', unsafe_allow_html=True)
                     
                     # Display confirmation

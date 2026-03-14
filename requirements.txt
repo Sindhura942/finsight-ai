@@ -9,6 +9,7 @@ pydantic-settings>=2.0.0
 
 # Database
 sqlalchemy>=2.0.0
+supabase>=2.0.0
 
 # Image Processing
 pillow>=10.2.0
