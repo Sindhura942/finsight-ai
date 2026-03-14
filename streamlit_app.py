@@ -196,15 +196,8 @@ if 'api_url' not in st.session_state:
 if 'api_available' not in st.session_state:
     st.session_state.api_available = None
 if 'local_expenses' not in st.session_state:
-    # Sample data for demo/cloud mode
-    st.session_state.local_expenses = [
-        {"id": 1, "date": "2026-03-10", "merchant": "Whole Foods", "category": "Groceries", "amount": 125.50, "description": "Weekly groceries"},
-        {"id": 2, "date": "2026-03-08", "merchant": "Shell Gas", "category": "Transportation", "amount": 45.00, "description": "Gas fill-up"},
-        {"id": 3, "date": "2026-03-07", "merchant": "Netflix", "category": "Entertainment", "amount": 15.99, "description": "Monthly subscription"},
-        {"id": 4, "date": "2026-03-05", "merchant": "Starbucks", "category": "Food & Dining", "amount": 8.50, "description": "Coffee"},
-        {"id": 5, "date": "2026-03-03", "merchant": "Amazon", "category": "Shopping", "amount": 67.99, "description": "Household items"},
-        {"id": 6, "date": "2026-03-01", "merchant": "Electric Company", "category": "Utilities", "amount": 95.00, "description": "Monthly bill"},
-    ]
+    # Start with empty data - users can add their own
+    st.session_state.local_expenses = []
 
 def check_api_availability():
     """Check if the backend API is available"""
