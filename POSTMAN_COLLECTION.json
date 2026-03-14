@@ -1,0 +1,286 @@
+{
+  "info": {
+    "_postman_id": "finsight-ai-api-collection",
+    "name": "FinSight AI API",
+    "description": "Complete API endpoints for FinSight AI expense tracking application",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Receipt Upload",
+      "item": [
+        {
+          "name": "Upload Receipt Image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "description": "Receipt image file (JPG, PNG, GIF, BMP)",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:8000/api/upload-receipt",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8000",
+              "path": ["api", "upload-receipt"]
+            },
+            "description": "Upload a receipt image and run full analysis. The endpoint will extract merchant, amount, and category information."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Expense Management",
+      "item": [
+        {
+          "name": "Add Expense (Manual Entry)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8000/api/add-expense?date=2024-03-13&merchant=Starbucks&category=food&amount=6.50&description=Morning coffee",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8000",
+              "path": ["api", "add-expense"],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2024-03-13",
+                  "description": "Date in YYYY-MM-DD format (required)"
+                },
+                {
+                  "key": "merchant",
+                  "value": "Starbucks",
+                  "description": "Vendor/store name (required)"
+                },
+                {
+                  "key": "category",
+                  "value": "food",
+                  "description": "Expense category (required)"
+                },
+                {
+                  "key": "amount",
+                  "value": "6.50",
+                  "description": "Amount in decimal format, must be > 0 (required)"
+                },
+                {
+                  "key": "description",
+                  "value": "Morning coffee",
+                  "description": "Optional notes/description"
+                }
+              ]
+            },
+            "description": "Add a new expense via text input (manual entry)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Expenses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8000/api/expenses?days=30&category=food",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8000",
+              "path": ["api", "expenses"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30",
+                  "description": "Number of days to retrieve (1-365, default: 30)"
+                },
+                {
+                  "key": "category",
+                  "value": "food",
+                  "description": "Filter by category (optional)"
+                }
+              ]
+            },
+            "description": "Retrieve all expenses for a specified period with optional category filtering"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Spending Summary",
+      "item": [
+        {
+          "name": "Get Spending Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8000/api/spending-summary?days=30",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8000",
+              "path": ["api", "spending-summary"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30",
+                  "description": "Number of days to analyze (1-365, default: 30)"
+                }
+              ]
+            },
+            "description": "Get comprehensive spending summary with category breakdown and AI insights"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Category Breakdown",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8000/api/category-breakdown?days=30",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8000",
+              "path": ["api", "category-breakdown"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30",
+                  "description": "Number of days to analyze (1-365, default: 30)"
+                }
+              ]
+            },
+            "description": "Get detailed breakdown by category with individual transaction details"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Monthly Insights",
+      "item": [
+        {
+          "name": "Get Monthly Insights",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8000/api/monthly-insights?months=3",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8000",
+              "path": ["api", "monthly-insights"],
+              "query": [
+                {
+                  "key": "months",
+                  "value": "3",
+                  "description": "Number of months to analyze (1-12, default: 3)"
+                }
+              ]
+            },
+            "description": "Get detailed monthly spending trends, AI recommendations, and budget alerts"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Spending Trends",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8000/api/spending-trends?days=30",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8000",
+              "path": ["api", "spending-trends"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30",
+                  "description": "Number of days to analyze (1-365, default: 30)"
+                }
+              ]
+            },
+            "description": "Get detailed daily and weekly spending trends"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Recommendations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8000/api/recommendations?days=30",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8000",
+              "path": ["api", "recommendations"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30",
+                  "description": "Number of days to analyze (1-365, default: 30)"
+                },
+                {
+                  "key": "category",
+                  "value": "food",
+                  "disabled": true,
+                  "description": "Filter by specific category (optional)"
+                }
+              ]
+            },
+            "description": "Get AI-powered cost-saving recommendations with priority levels"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health & Status",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8000/api/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8000",
+              "path": ["api", "health"]
+            },
+            "description": "Check API health status"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8000/api/stats",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8000",
+              "path": ["api", "stats"]
+            },
+            "description": "Get overall system statistics"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

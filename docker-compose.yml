@@ -1,0 +1,58 @@
+"""Docker Compose Configuration for FinSight AI
+
+Note: This is a template. Update paths and configurations as needed.
+"""
+
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - DATABASE_URL=sqlite:///./finsight.db
+      - OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      - ollama
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
+    networks:
+      - finsight-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - finsight-network
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_MODELS=/root/.ollama/models
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - finsight-network
+
+networks:
+  finsight-network:
+    driver: bridge
+
+volumes:
+  ollama-data:
+    driver: local
