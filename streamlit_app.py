@@ -193,6 +193,108 @@ if 'expenses' not in st.session_state:
     st.session_state.expenses = []
 if 'api_url' not in st.session_state:
     st.session_state.api_url = "http://localhost:8000/api"
+if 'api_available' not in st.session_state:
+    st.session_state.api_available = None
+if 'local_expenses' not in st.session_state:
+    # Sample data for demo/cloud mode
+    st.session_state.local_expenses = [
+        {"id": 1, "date": "2026-03-10", "merchant": "Whole Foods", "category": "Groceries", "amount": 125.50, "description": "Weekly groceries"},
+        {"id": 2, "date": "2026-03-08", "merchant": "Shell Gas", "category": "Transportation", "amount": 45.00, "description": "Gas fill-up"},
+        {"id": 3, "date": "2026-03-07", "merchant": "Netflix", "category": "Entertainment", "amount": 15.99, "description": "Monthly subscription"},
+        {"id": 4, "date": "2026-03-05", "merchant": "Starbucks", "category": "Food & Dining", "amount": 8.50, "description": "Coffee"},
+        {"id": 5, "date": "2026-03-03", "merchant": "Amazon", "category": "Shopping", "amount": 67.99, "description": "Household items"},
+        {"id": 6, "date": "2026-03-01", "merchant": "Electric Company", "category": "Utilities", "amount": 95.00, "description": "Monthly bill"},
+    ]
+
+def check_api_availability():
+    """Check if the backend API is available"""
+    if st.session_state.api_available is not None:
+        return st.session_state.api_available
+    try:
+        response = requests.get(f"{st.session_state.api_url}/spending-summary", params={'days': 30}, timeout=3)
+        st.session_state.api_available = response.status_code == 200
+    except:
+        st.session_state.api_available = False
+    return st.session_state.api_available
+
+def get_local_spending_summary(days: int = 30) -> Dict:
+    """Get spending summary from local data (for demo/cloud mode)"""
+    expenses = st.session_state.local_expenses
+    total = sum(e['amount'] for e in expenses)
+    count = len(expenses)
+    
+    # Group by category
+    by_category = {}
+    for e in expenses:
+        cat = e['category']
+        if cat not in by_category:
+            by_category[cat] = {'total': 0, 'count': 0}
+        by_category[cat]['total'] += e['amount']
+        by_category[cat]['count'] += 1
+    
+    categories = [
+        {
+            'category': cat,
+            'total': data['total'],
+            'percentage': (data['total'] / total * 100) if total > 0 else 0,
+            'transaction_count': data['count']
+        }
+        for cat, data in sorted(by_category.items(), key=lambda x: x[1]['total'], reverse=True)
+    ]
+    
+    highest_cat = categories[0]['category'] if categories else "N/A"
+    
+    return {
+        'success': True,
+        'data': {
+            'data': {
+                'summary': {
+                    'total_spending': total,
+                    'average_daily_spending': total / days if days > 0 else 0,
+                    'transaction_count': count,
+                    'highest_category': highest_cat,
+                    'period': f'Last {days} days'
+                },
+                'by_category': categories,
+                'insights': [
+                    f"{highest_cat} is your top spending category",
+                    f"You have {count} transactions recorded",
+                    "Track more expenses to get better insights!"
+                ]
+            }
+        }
+    }
+
+def get_local_monthly_insights(months: int = 3) -> Dict:
+    """Get monthly insights from local data (for demo/cloud mode)"""
+    return {
+        'success': True,
+        'data': {
+            'monthly_data': [],
+            'trends': {
+                'overall_trend': 'stable',
+                'trend_description': 'Add more expenses to see spending trends over time.',
+                'spending_stability': 0.8
+            },
+            'recommendations': [
+                {
+                    'priority': 'medium',
+                    'category': 'General',
+                    'suggestion': 'Track all your expenses to identify spending patterns.',
+                    'potential_savings': 50.0,
+                    'savings_percentage': 5.0
+                },
+                {
+                    'priority': 'low',
+                    'category': 'Budgeting',
+                    'suggestion': 'Set monthly budgets for each spending category.',
+                    'potential_savings': 100.0,
+                    'savings_percentage': 10.0
+                }
+            ],
+            'budget_alerts': []
+        }
+    }
 
 # ============================================================================
 # UTILITY FUNCTIONS
@@ -273,7 +375,11 @@ def add_expense(date: str, merchant: str, category: str, amount: float, descript
         return {'success': False, 'error': str(e)}
 
 def get_spending_summary(days: int = 30) -> Dict:
-    """Get spending summary from API"""
+    """Get spending summary from API or local data"""
+    # Check if API is available
+    if not check_api_availability():
+        return get_local_spending_summary(days)
+    
     try:
         response = requests.get(
             f"{st.session_state.api_url}/spending-summary",
@@ -284,12 +390,16 @@ def get_spending_summary(days: int = 30) -> Dict:
         if response.status_code == 200:
             return {'success': True, 'data': response.json()}
         else:
-            return {'success': False, 'error': 'Failed to get spending summary'}
+            return get_local_spending_summary(days)
     except Exception as e:
-        return {'success': False, 'error': str(e)}
+        return get_local_spending_summary(days)
 
 def get_monthly_insights(months: int = 3) -> Dict:
-    """Get monthly insights from API"""
+    """Get monthly insights from API or local data"""
+    # Check if API is available
+    if not check_api_availability():
+        return get_local_monthly_insights(months)
+    
     try:
         response = requests.get(
             f"{st.session_state.api_url}/monthly-insights",
@@ -300,9 +410,9 @@ def get_monthly_insights(months: int = 3) -> Dict:
         if response.status_code == 200:
             return {'success': True, 'data': response.json()}
         else:
-            return {'success': False, 'error': 'Failed to get insights'}
+            return get_local_monthly_insights(months)
     except Exception as e:
-        return {'success': False, 'error': str(e)}
+        return get_local_monthly_insights(months)
 
 # ============================================================================
 # HEADER SECTION
